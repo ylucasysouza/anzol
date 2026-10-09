@@ -87,9 +87,10 @@ export const CHECKOUT: Record<"pro_month" | "pro_year" | "baleia_month" | "balei
 
 export const PLAN_PRICE = {
   free: 0,
-  proMonth: 459,
-  proYear: 4590,
-  baleiaMonth: 999,
-  baleiaYear: 9990,
+  // Decisão Chairman 09/10/2026: Pro R$29,90/mês ou R$269/ano; Baleia inalterado.
+  proMonth: 29.9,
+  proYear: 269,
+  baleiaMonth: 99.9,
+  baleiaYear: 899,
   enterpriseFrom: 2990,
 } as const;
