@@ -3,6 +3,7 @@ export type Role = "user" | "developer";
 
 export type Feature =
   | "apuracao_day_swing"
+  | "compensacao_prejuizo"
   | "gastos_conta"
   | "fluxo_caixa"
   | "api_read"
@@ -18,6 +19,9 @@ const RANK: Record<PlanId, number> = { free: 0, pro: 1, baleia: 2, enterprise: 3
 
 const MIN: Record<Feature, PlanId> = {
   apuracao_day_swing: "free",
+  // Decisão de produto (out/2026): compensação de prejuízo é recurso do Pro.
+  // Ainda NÃO está ligada na tela: hoje o motor compensa para todos.
+  compensacao_prejuizo: "pro",
   gastos_conta: "pro",
   fluxo_caixa: "pro",
   api_read: "baleia",
