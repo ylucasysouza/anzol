@@ -1,0 +1,310 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --color-bg: var(--tcp-bg);
+  --color-surface: var(--tcp-surface);
+  --color-card: var(--tcp-card);
+  --color-inset: var(--tcp-inset);
+  --color-fg: var(--tcp-fg);
+  --color-muted: var(--tcp-muted);
+  --color-faint: var(--tcp-faint);
+  --color-border: var(--tcp-border);
+  --color-border-strong: var(--tcp-border-strong);
+  --color-accent: var(--tcp-accent);
+  --color-accent-fg: var(--tcp-accent-fg);
+  --color-gain: var(--tcp-gain);
+  --color-loss: var(--tcp-loss);
+  --color-warn: var(--tcp-warn);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --text-2xs: 0.6875rem;
+}
+
+:root {
+  --tcp-bg: #070c14;
+  --tcp-surface: #0c1420;
+  --tcp-card: #111a2a;
+  --tcp-inset: #0a121e;
+  --tcp-fg: #e8eef8;
+  --tcp-muted: #8b9bb4;
+  --tcp-faint: #4d5d78;
+  --tcp-border: rgb(232 238 248 / 0.08);
+  --tcp-border-strong: rgb(232 238 248 / 0.14);
+  --tcp-accent: #4d8ef0;
+  --tcp-accent-fg: #f8fbff;
+  --tcp-gain: #3ecf9a;
+  --tcp-loss: #ef6b7b;
+  --tcp-warn: #d4b483;
+  color-scheme: dark;
+}
+
+html.light {
+  --tcp-bg: #eef2f6;
+  --tcp-surface: #ffffff;
+  --tcp-card: #ffffff;
+  --tcp-inset: #f4f7fa;
+  --tcp-fg: #152033;
+  --tcp-muted: #5b6b82;
+  --tcp-faint: #9aa8bc;
+  --tcp-border: rgb(21 32 51 / 0.08);
+  --tcp-border-strong: rgb(21 32 51 / 0.16);
+  --tcp-accent: #2563d4;
+  --tcp-accent-fg: #ffffff;
+  --tcp-gain: #0f9d6e;
+  --tcp-loss: #d6455a;
+  --tcp-warn: #9a7040;
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100dvh;
+    background: var(--tcp-bg);
+    color: var(--tcp-fg);
+  }
+
+  body {
+    overscroll-behavior-y: none;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+.app-header {
+  height: calc(3rem + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+}
+
+.app-sidebar {
+  padding-top: env(safe-area-inset-top);
+}
+
+.app-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.app-main {
+  padding-bottom: 5.5rem;
+}
+
+@media (display-mode: standalone), (display-mode: window-controls-overlay) {
+  .app-header {
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  .app-header button,
+  .app-header a,
+  .app-header input {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+}
+
+@media (display-mode: window-controls-overlay) {
+  .app-header {
+    padding-left: max(0.75rem, env(titlebar-area-x, 0px));
+    height: max(3rem, env(titlebar-area-height, 3rem));
+  }
+}
+
+@media (max-width: 767px) {
+  .app-shell {
+    padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+  .app-main {
+    padding-bottom: calc(8.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+.fab-ai {
+  position: fixed;
+  z-index: 40;
+  right: 1.25rem;
+  bottom: 1.25rem;
+}
+
+@media (max-width: 767px) {
+  .fab-ai {
+    right: 1rem;
+    bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+}
+
+.fab-ai-panel {
+  position: fixed;
+  z-index: 40;
+  right: 1.25rem;
+  bottom: 5rem;
+}
+
+@media (max-width: 767px) {
+  .fab-ai-panel {
+    right: 1rem;
+    bottom: calc(8rem + env(safe-area-inset-bottom));
+  }
+}
+
+.dialog-sheet {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .darf-sheet {
+    border-color: #ccc !important;
+    background: #fff !important;
+    color: #111 !important;
+    box-shadow: none !important;
+  }
+}
+
+.tabs-scroll {
+  scrollbar-width: none;
+}
+.tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.hook-in {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: #071018;
+  cursor: pointer;
+}
+
+.hook-in.is-out {
+  animation: hook-fade 0.4s ease forwards;
+}
+
+.hook-stage {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.hook-mark {
+  width: 7.5rem;
+  height: 7.5rem;
+  margin-inline: auto;
+  border-radius: 1.75rem;
+  transform-origin: 50% 18%;
+  animation: hook-sway 1.7s ease-in-out both;
+}
+
+.hook-word {
+  margin-top: 1.25rem;
+  color: #e8eef8;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+}
+
+.hook-caption {
+  margin-top: 0.4rem;
+  color: #8b9bb4;
+  font-size: 0.8rem;
+}
+
+.hook-bubble {
+  position: absolute;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 32% 28%,
+    rgba(255, 255, 255, 0.95),
+    rgba(255, 255, 255, 0.35) 42%,
+    rgba(255, 255, 255, 0.08) 68%,
+    transparent 72%
+  );
+  box-shadow: inset -2px -3px 6px rgba(255, 255, 255, 0.28);
+  animation: bubble-float 2.6s ease-in-out infinite;
+}
+
+@keyframes hook-sway {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) rotate(-10deg) scale(0.82);
+  }
+  22% {
+    opacity: 1;
+  }
+  46% {
+    transform: translateY(0) rotate(7deg) scale(1);
+  }
+  72% {
+    transform: translateY(-6px) rotate(-4deg) scale(1);
+  }
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes bubble-float {
+  0% {
+    opacity: 0.35;
+    transform: translateY(10px) scale(0.92);
+  }
+  50% {
+    opacity: 0.95;
+    transform: translateY(-18px) scale(1);
+  }
+  100% {
+    opacity: 0.4;
+    transform: translateY(8px) scale(0.96);
+  }
+}
+
+@keyframes hook-fade {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
