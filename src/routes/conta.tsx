@@ -25,7 +25,7 @@ function ContaPage() {
       <img src="/icon-192.png?v=5" alt="" className="size-14 rounded-2xl" />
       <h1 className="mt-5 text-2xl font-semibold tracking-tight">{tr("Conta", "Account", "Cuenta")}</h1>
       {isPending ? (
-        <p className="mt-3 text-sm text-muted">{tr("Abrindo a conta\u2026", "Opening the account\u2026", "Abriendo la cuenta\u2026")}</p>
+        <p className="mt-3 text-sm text-muted">{tr("Abrindo a conta…", "Opening the account…", "Abriendo la cuenta…")}</p>
       ) : user ? (
         <div className="mt-4 space-y-4">
           <p className="text-sm leading-relaxed text-muted">
@@ -42,10 +42,10 @@ function ContaPage() {
             )}
           </p>
           <p className="text-sm text-muted">
-            {sync === "saving" && tr("Sincronizando com os outros aparelhos\u2026", "Syncing with the other devices\u2026", "Sincronizando con los otros dispositivos\u2026")}
-            {sync === "saved" && tr("Sincronizado. Esta conta est\u00e1 igual no celular e no computador.", "Synced. This account matches on the phone and the computer.", "Sincronizado. Esta cuenta est\u00e1 igual en el celular y en la computadora.")}
-            {sync === "error" && tr("N\u00e3o consegui enviar agora. Os dados continuam neste aparelho.", "Could not send right now. Your data is still on this device.", "No pude enviar ahora. Los datos siguen en este dispositivo.")}
-            {sync === "off" && tr("Ligando a conta\u2026", "Linking the account\u2026", "Conectando la cuenta\u2026")}
+            {sync === "saving" && tr("Sincronizando com os outros aparelhos…", "Syncing with the other devices…", "Sincronizando con los otros dispositivos…")}
+            {sync === "saved" && tr("Sincronizado. Esta conta está igual no celular e no computador.", "Synced. This account matches on the phone and the computer.", "Sincronizado. Esta cuenta está igual en el celular y en la computadora.")}
+            {sync === "error" && tr("Não consegui enviar agora. Os dados continuam neste aparelho.", "Could not send right now. Your data is still on this device.", "No pude enviar ahora. Los datos siguen en este dispositivo.")}
+            {sync === "off" && tr("Ligando a conta…", "Linking the account…", "Conectando la cuenta…")}
           </p>
           <UserButton />
         </div>
@@ -62,7 +62,7 @@ function ContaPage() {
             <Link to="/login">{tr("Entrar ou criar conta", "Sign in or create an account", "Entrar o crear cuenta")}</Link>
           </Button>
           <p className="text-2xs leading-relaxed text-muted">
-            {tr("Apple e Microsoft n\u00e3o est\u00e3o dispon\u00edveis.", "Apple and Microsoft are not available.", "Apple y Microsoft no est\u00e1n disponibles.")}
+            {tr("Apple e Microsoft não estão disponíveis.", "Apple and Microsoft are not available.", "Apple y Microsoft no están disponibles.")}
           </p>
         </div>
       )}
@@ -73,14 +73,14 @@ function ContaPage() {
           <p className="mt-2 text-muted">
             {ios
               ? tr(
-                  "Se voc\u00ea est\u00e1 dentro do Grok, o iPhone esconde a op\u00e7\u00e3o. Toque em compartilhar no topo da barra, depois em Open in Safari. No Safari, compartilhe de novo e role at\u00e9 Add to Home Screen.",
+                  "Se você está dentro do Grok, o iPhone esconde a opção. Toque em compartilhar no topo da barra, depois em Open in Safari. No Safari, compartilhe de novo e role até Add to Home Screen.",
                   "Inside Grok, the iPhone hides the option. Tap Share at the top of the bar, then Open in Safari. In Safari, share again and scroll to Add to Home Screen.",
-                  "Dentro de Grok, el iPhone esconde la opci\u00f3n. Toca compartir arriba en la barra, luego Open in Safari. En Safari, comparte otra vez y baja hasta Add to Home Screen.",
+                  "Dentro de Grok, el iPhone esconde la opción. Toca compartir arriba en la barra, luego Open in Safari. En Safari, comparte otra vez y baja hasta Add to Home Screen.",
                 )
               : tr(
-                  "Abra este site no Chrome, toque no menu \u22ee e em Instalar app ou Adicionar \u00e0 tela inicial. A busca do celular s\u00f3 acha o Anzol depois disso.",
-                  "Open this site in Chrome, tap the \u22ee menu, then Install app or Add to Home screen. Phone search only finds Anzol after that.",
-                  "Abre este sitio en Chrome, toca el men\u00fa \u22ee y Instalar app o Agregar a la pantalla de inicio. La b\u00fasqueda del celular solo encuentra Anzol despu\u00e9s de eso.",
+                  "Abra este site no Chrome, toque no menu ⋮ e em Instalar app ou Adicionar à tela inicial. A busca do celular só acha o Anzol depois disso.",
+                  "Open this site in Chrome, tap the ⋮ menu, then Install app or Add to Home screen. Phone search only finds Anzol after that.",
+                  "Abre este sitio en Chrome, toca el menú ⋮ y Instalar app o Agregar a la pantalla de inicio. La búsqueda del celular solo encuentra Anzol después de eso.",
                 )}
           </p>
         </div>
