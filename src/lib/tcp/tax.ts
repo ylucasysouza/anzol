@@ -1,5 +1,7 @@
 import { MONTHS, MONTHS_SHORT, num, tradeValue } from "./format.ts";
 import { jurisdiction } from "./jurisdictions.ts";
+import { assetClassOf } from "./assets.ts";
+import { applyRate, DARF_MINIMO, fromCents, toCents } from "../money.ts";
 import type {
   Account,
   AdvStats,
@@ -50,25 +52,27 @@ export function calcDT(
   const rate = account && account.taxRate != null ? account.taxRate : jur.rate;
 
   if (jur.sc === "BR") {
+    // Motor em centavos inteiros; converte para reais só no retorno.
     const dtr = trades.filter((t) => t.tipo !== "swing" && t.tipo !== "position");
-    const gross = dtr.reduce((s, t) => s + num(t.ajuste), 0);
-    const fees = dtr.reduce((s, t) => s + num(t.taxas), 0);
-    const irrf = dtr.reduce((s, t) => s + num(t.irrf), 0);
-    const net = gross - fees;
-    const base = Math.max(0, net - prevC);
-    const td = base * (rate || 0.2);
-    const darf = Math.max(0, td - irrf);
+    const grossC = dtr.reduce((s, t) => s + toCents(t.ajuste), 0);
+    const feesC = dtr.reduce((s, t) => s + toCents(t.taxas), 0);
+    const irrfC = dtr.reduce((s, t) => s + toCents(t.irrf), 0);
+    const prevCC = toCents(prevC);
+    const netC = grossC - feesC;
+    const baseC = Math.max(0, netC - prevCC);
+    const tdC = applyRate(baseC, rate || 0.2);
+    const darfC = Math.max(0, tdC - irrfC);
     return {
-      gross,
-      fees,
-      irrf,
+      gross: fromCents(grossC),
+      fees: fromCents(feesC),
+      irrf: fromCents(irrfC),
       comm: 0,
-      net,
-      prevC,
-      base,
-      td,
-      darf,
-      nc: Math.max(0, prevC - net),
+      net: fromCents(netC),
+      prevC: fromCents(prevCC),
+      base: fromCents(baseC),
+      td: fromCents(tdC),
+      darf: fromCents(darfC),
+      nc: fromCents(Math.max(0, prevCC - netC)),
       count: dtr.length,
       sc: "BR",
     };
@@ -116,32 +120,91 @@ export function calcDT(
   };
 }
 
+/**
+ * Swing/posição BR (15%). A isenção de R$ 20 mil vale SÓ para vendas de ações
+ * no mercado à vista: o limite é medido sobre as vendas de ações e isenta só o
+ * ganho em ações. FII, ETF, BDR, futuros e opções seguem tributados.
+ * Em mês isento, o ganho em ações não consome prejuízo acumulado, mas a
+ * perda em ações continua compensável depois.
+ */
 export function calcSwing(trades: Trade[], prevC: number, jur: Jurisdiction): SwingResult {
   const sw = trades.filter((t) => t.tipo === "swing" || t.tipo === "position");
-  const gross = sw.reduce((s, t) => s + num(t.ajuste), 0);
-  const fees = sw.reduce((s, t) => s + num(t.taxas), 0);
-  const irrf = sw.reduce((s, t) => s + num(t.irrf), 0);
-  const totalVendas = sw.reduce((s, t) => s + num(t.totalVendas), 0);
-  const net = gross - fees;
-  const exempt = totalVendas > 0 && totalVendas <= (jur.swingExemption || 20000);
-  const base = exempt ? 0 : Math.max(0, net - prevC);
-  const td = base * (jur.swingRate || 0.15);
-  const darf = Math.max(0, td - irrf);
+  let grossC = 0, feesC = 0, irrfC = 0, totalVendasC = 0;
+  let netAcoesC = 0, netOutrosC = 0, vendasAcoesC = 0;
+  for (const t of sw) {
+    const g = toCents(t.ajuste);
+    const f = toCents(t.taxas);
+    const v = toCents(t.totalVendas);
+    grossC += g;
+    feesC += f;
+    irrfC += toCents(t.irrf);
+    totalVendasC += v;
+    if (assetClassOf(t) === "acao") {
+      netAcoesC += g - f;
+      vendasAcoesC += v;
+    } else {
+      netOutrosC += g - f;
+    }
+  }
+  const limiteC = toCents(jur.swingExemption || 20000);
+  const exempt = vendasAcoesC > 0 && vendasAcoesC <= limiteC;
+  const prevCC = toCents(prevC);
+  const netC = grossC - feesC;
+  const netTributavelC = netOutrosC + (exempt ? Math.min(0, netAcoesC) : netAcoesC);
+  const baseC = Math.max(0, netTributavelC - prevCC);
+  const tdC = applyRate(baseC, jur.swingRate || 0.15);
+  const darfC = Math.max(0, tdC - irrfC);
   return {
-    gross,
-    fees,
-    irrf,
-    net,
-    prevC,
-    base,
-    td,
-    darf,
-    nc: Math.max(0, prevC - net),
+    gross: fromCents(grossC),
+    fees: fromCents(feesC),
+    irrf: fromCents(irrfC),
+    net: fromCents(netC),
+    prevC: fromCents(prevCC),
+    base: fromCents(baseC),
+    td: fromCents(tdC),
+    darf: fromCents(darfC),
+    nc: fromCents(Math.max(0, prevCC - netTributavelC)),
     count: sw.length,
-    totalVendas,
+    totalVendas: fromCents(totalVendasC),
+    vendasAcoes: fromCents(vendasAcoesC),
     exempt,
     sc: "SWING",
   };
+}
+
+export interface DarfMes {
+  month: number;
+  /** DARF 6015 apurado no mês (day trade + swing), em reais */
+  devido: number;
+  /** valor que entra na guia deste mês (inclui saldos < R$10 de meses anteriores) */
+  pagar: number;
+  /** saldo abaixo de R$ 10 que passa para o mês seguinte */
+  diferido: number;
+}
+
+/**
+ * Calendário de DARF 6015 do ano com a regra do valor mínimo: total abaixo
+ * de R$ 10,00 não é pago no mês e soma ao(s) mês(es) seguinte(s)
+ * (Lei 9.430/1996, art. 68; IN RFB 1.585/2015).
+ */
+export function darfSchedule(allTrades: Trade[], account: Account | null, jur: Jurisdiction): DarfMes[] {
+  const out: DarfMes[] = [];
+  let pendenteC = 0;
+  for (let m = 0; m < 12; m++) {
+    const tr = tradesInMonth(allTrades, m);
+    const dt = calcDT(tr, carry(allTrades, m, "dt", account, jur), account, jur);
+    const sw = calcSwing(tr, carry(allTrades, m, "sw", account, jur), jur);
+    const devidoC = toCents(dt.darf ?? 0) + toCents(sw.darf);
+    const totalC = pendenteC + devidoC;
+    if (totalC >= DARF_MINIMO) {
+      out.push({ month: m, devido: fromCents(devidoC), pagar: fromCents(totalC), diferido: 0 });
+      pendenteC = 0;
+    } else {
+      out.push({ month: m, devido: fromCents(devidoC), pagar: 0, diferido: fromCents(totalC) });
+      pendenteC = totalC;
+    }
+  }
+  return out;
 }
 
 export function carry(
