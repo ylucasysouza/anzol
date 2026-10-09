@@ -1,5 +1,5 @@
 import type { ScopeCode, Trade } from "./types";
-import { readLocale } from "@/lib/i18n";
+import { readLocale } from "../locale.ts";
 
 function localeTag() {
   const loc = readLocale();
