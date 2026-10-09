@@ -26,7 +26,7 @@ export function buildDemoState(): PersistedTcp {
       {
         id: XP,
         taxpayerId: TP,
-        name: "XP Posi\u00e7\u00e3o 2026",
+        name: "XP Posição 2026",
         trader: "Lucas Souza",
         country: "BR",
         broker: "XP Investimentos",
@@ -80,12 +80,12 @@ export function buildDemoState(): PersistedTcp {
         PETR4: { price: 38.42, chg: 0.51, pct: 1.34, name: "Petrobras PN" },
         VALE3: { price: 64.1, chg: -0.38, pct: -0.59, name: "Vale ON" },
         BBAS3: { price: 28.15, chg: 0.22, pct: 0.79, name: "Banco do Brasil ON" },
-        HGLG11: { price: 163.4, chg: 0.85, pct: 0.52, name: "CSHG Log\u00edstica FII" },
+        HGLG11: { price: 163.4, chg: 0.85, pct: 0.52, name: "CSHG Logística FII" },
         BOVA11: { price: 136.2, chg: 0.74, pct: 0.55, name: "iShares Ibovespa" },
       },
       dividends: {
         PETR4: [{ type: "DIVIDENDO", label: "Dividendo", rate: 0.45, paymentDate: "2026-11-20" }],
-        VALE3: [{ type: "JCP", label: "Juros sobre capital pr\u00f3prio", rate: 0.82, paymentDate: "2026-10-15" }],
+        VALE3: [{ type: "JCP", label: "Juros sobre capital próprio", rate: 0.82, paymentDate: "2026-10-15" }],
         HGLG11: [{ type: "DIVIDENDO", label: "Rendimento", rate: 1.1, paymentDate: "2026-10-08" }],
         BBAS3: [{ type: "JCP", label: "JCP", rate: 0.31, paymentDate: "2026-12-02" }],
       },
