@@ -172,6 +172,47 @@ export function calcSwing(trades: Trade[], prevC: number, jur: Jurisdiction): Sw
   };
 }
 
+export interface MonthTax {
+  dt: DtResult;
+  sw: SwingResult;
+  /** DARF 6015 apurado no mês (DT + swing) */
+  devido: number;
+  /** valor da guia deste mês (0 se abaixo de R$ 10) */
+  pagar: number;
+  /** saldo < R$ 10 de meses anteriores somado a esta guia (ou que segue adiante) */
+  diferidoAnterior: number;
+  /** saldo que passa para o mês seguinte */
+  diferido: number;
+  /** prejuízo que seria compensado no Pro mas não foi (plano Grátis) */
+  prejuizoNaoCompensado: number;
+}
+
+/** Tudo que a tela do mês precisa, numa chamada só. */
+export function monthTax(
+  allTrades: Trade[],
+  month: number,
+  account: Account | null,
+  jur: Jurisdiction,
+  compensar = true,
+): MonthTax {
+  const tr = tradesInMonth(allTrades, month);
+  const dt = calcDT(tr, carry(allTrades, month, "dt", account, jur, compensar), account, jur);
+  const sw = calcSwing(tr, carry(allTrades, month, "sw", account, jur, compensar), jur);
+  let devido = 0, pagar = 0, diferido = 0, diferidoAnterior = 0;
+  if (jur.sc === "BR") {
+    const sched = darfSchedule(allTrades, account, jur, compensar);
+    const cur = sched[month];
+    devido = cur.devido;
+    pagar = cur.pagar;
+    diferido = cur.diferido;
+    diferidoAnterior = month > 0 ? sched[month - 1].diferido : 0;
+  }
+  const prejuizoNaoCompensado = compensar
+    ? 0
+    : carry(allTrades, month, "dt", account, jur) + carry(allTrades, month, "sw", account, jur);
+  return { dt, sw, devido, pagar, diferidoAnterior, diferido, prejuizoNaoCompensado };
+}
+
 export interface DarfMes {
   month: number;
   /** DARF 6015 apurado no mês (day trade + swing), em reais */
@@ -187,13 +228,18 @@ export interface DarfMes {
  * de R$ 10,00 não é pago no mês e soma ao(s) mês(es) seguinte(s)
  * (Lei 9.430/1996, art. 68; IN RFB 1.585/2015).
  */
-export function darfSchedule(allTrades: Trade[], account: Account | null, jur: Jurisdiction): DarfMes[] {
+export function darfSchedule(
+  allTrades: Trade[],
+  account: Account | null,
+  jur: Jurisdiction,
+  compensar = true,
+): DarfMes[] {
   const out: DarfMes[] = [];
   let pendenteC = 0;
   for (let m = 0; m < 12; m++) {
     const tr = tradesInMonth(allTrades, m);
-    const dt = calcDT(tr, carry(allTrades, m, "dt", account, jur), account, jur);
-    const sw = calcSwing(tr, carry(allTrades, m, "sw", account, jur), jur);
+    const dt = calcDT(tr, carry(allTrades, m, "dt", account, jur, compensar), account, jur);
+    const sw = calcSwing(tr, carry(allTrades, m, "sw", account, jur, compensar), jur);
     const devidoC = toCents(dt.darf ?? 0) + toCents(sw.darf);
     const totalC = pendenteC + devidoC;
     if (totalC >= DARF_MINIMO) {
@@ -213,7 +259,10 @@ export function carry(
   type: "dt" | "sw",
   account: Account | null,
   jur: Jurisdiction,
+  compensar = true,
 ): number {
+  // Sem compensação (plano Grátis): nenhum prejuízo é levado ao mês seguinte.
+  if (!compensar) return 0;
   let c =
     parseFloat(String(type === "sw" ? account?.swingInitialLoss : account?.initialLoss)) || 0;
   for (let i = 0; i < month; i++) {

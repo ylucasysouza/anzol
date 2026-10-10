@@ -11,7 +11,7 @@ import {
   adv,
   calcConsol,
   calcDT,
-  calcSwing,
+  monthTax,
   carry,
   darfDueDate,
   tradesInMonth,
@@ -21,7 +21,7 @@ import { useActiveAccount, useTcpStore } from "@/lib/tcp/store";
 import type { Jurisdiction, SwingResult, Trade } from "@/lib/tcp/types";
 import { DarfGuide } from "./darf-guide";
 import { EmptyState, MetricCard, Pnl, Row, Section } from "./metric-card";
-import { useEntitlement } from "@/lib/tcp/entitlement";
+import { can, useEntitlement } from "@/lib/tcp/entitlement";
 import { allowsPdf, countryAllowed, monthAllowed } from "@/lib/tcp/plans";
 import { requestPlans } from "./plan-gate";
 
@@ -48,14 +48,16 @@ export function MonthView({
   const jur = jurisdiction(account?.country);
   const all = account ? (tradesMap[account.id] ?? []) : [];
   const trades = tradesInMonth(all, month);
-  const c = carry(all, month, "dt", account, jur);
-  const tax = calcDT(trades, c, account, jur);
+  const ent = useEntitlement();
+  // Compensação de prejuízo é recurso do Pro (plano vem do servidor).
+  const compensar = can(ent, "compensacao_prejuizo");
+  const mt = monthTax(all, month, account, jur, compensar);
+  const tax = mt.dt;
   const stats = adv(trades, jur.sc);
   const pfStr = stats.pf >= 99 ? "+99" : stats.pf.toFixed(2);
   const dtT = trades.filter((t) => t.tipo !== "swing" && t.tipo !== "position");
   const swT = trades.filter((t) => t.tipo === "swing" || t.tipo === "position");
-  const swC = carry(all, month, "sw", account, jur);
-  const swTax = calcSwing(trades, swC, jur);
+  const swTax = mt.sw;
   const consol = calcConsol(month, account, accounts, tradesMap);
   const taxLabel =
     jur.sc === "BR"
@@ -76,17 +78,16 @@ export function MonthView({
       ? "warn"
       : "neutral";
   const due = account ? darfDueDate(account.year, month) : null;
-  const darfTotal =
-    (tax.darf ?? 0) + (jur.sc === "BR" && swTax.count && !swTax.exempt ? swTax.darf : 0);
+  // Guia do mês: DT + swing, com a regra do mínimo de R$ 10 (saldo menor passa adiante).
+  const darfTotal = mt.pagar;
   const [guide, setGuide] = useState(false);
-  const ent = useEntitlement();
   const casaMonth = casa ? computeCasa(casa).months[month] : null;
 
   let mom: string | undefined;
   if (month > 0) {
     const prev = calcDT(
       tradesInMonth(all, month - 1),
-      carry(all, month - 1, "dt", account, jur),
+      carry(all, month - 1, "dt", account, jur, compensar),
       account,
       jur,
     );
@@ -124,6 +125,37 @@ export function MonthView({
                 "Este mes pasa de los 90 días de Free. Los números siguen guardados.",
               )}
         </button>
+      )}
+      {jur.sc === "BR" && (mt.diferido > 0 || mt.diferidoAnterior > 0 || mt.prejuizoNaoCompensado > 0) && (
+        <div className="mb-3 space-y-1 rounded-xl border border-border bg-card px-3 py-2 text-xs leading-relaxed text-muted">
+          {mt.diferido > 0 && (
+            <p>
+              {tr(
+                `DARF abaixo de R$ 10 não é paga: ${formatMoney(mt.diferido, jur.sym)} passa para o mês seguinte.`,
+                `A DARF under R$ 10 is not paid: ${formatMoney(mt.diferido, jur.sym)} rolls to next month.`,
+                `Un DARF menor a R$ 10 no se paga: ${formatMoney(mt.diferido, jur.sym)} pasa al mes siguiente.`,
+              )}
+            </p>
+          )}
+          {mt.diferido === 0 && mt.diferidoAnterior > 0 && (
+            <p>
+              {tr(
+                `A guia inclui ${formatMoney(mt.diferidoAnterior, jur.sym)} de meses anteriores (abaixo de R$ 10).`,
+                `This slip includes ${formatMoney(mt.diferidoAnterior, jur.sym)} carried from earlier months (under R$ 10).`,
+                `La guía incluye ${formatMoney(mt.diferidoAnterior, jur.sym)} de meses anteriores (menos de R$ 10).`,
+              )}
+            </p>
+          )}
+          {mt.prejuizoNaoCompensado > 0 && (
+            <button type="button" onClick={() => requestPlans()} className="text-left underline-offset-2 hover:underline">
+              {tr(
+                `Você tem ${formatMoney(mt.prejuizoNaoCompensado, jur.sym)} de prejuízo que pode abater este imposto. A compensação está no Pro.`,
+                `You have ${formatMoney(mt.prejuizoNaoCompensado, jur.sym)} in losses that could offset this tax. Loss offset is on Pro.`,
+                `Tienes ${formatMoney(mt.prejuizoNaoCompensado, jur.sym)} de pérdida que puede reducir este impuesto. La compensación está en Pro.`,
+              )}
+            </button>
+          )}
+        </div>
       )}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -922,7 +954,7 @@ function SwingTaxCard({
           label={tr("Total de vendas", "Total sales", "Total de ventas")}
           value={formatMoney(swTax.totalVendas, jur.sym)}
         />
-        {swTax.exempt ? (
+        {swTax.exempt && swTax.darf === 0 ? (
           <div className="mt-2 rounded-lg border border-gain/30 bg-gain/10 px-3 py-2 text-xs font-medium text-gain">
             {tr(
               "Isento — vendas ≤ R$20.000. Nenhum imposto devido.",

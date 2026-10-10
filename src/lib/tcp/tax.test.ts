@@ -10,6 +10,7 @@ import {
   calcUSQuarterly,
   carry,
   darfSchedule,
+  monthTax,
   darfDueDate,
   equityCurve,
   lastBusinessDay,
@@ -248,5 +249,32 @@ describe("centavos no motor", () => {
     const r = calcDT([dt({ ajuste: 0.1 }), dt({ ajuste: 0.2 })], 0, acct(), br);
     assert.equal(r.net, 0.3);
     assert.equal(r.td, 0.06);
+  });
+});
+
+describe("monthTax (tela do mês)", () => {
+  const a = acct();
+  const trades = [
+    dt({ id: "1", date: "2026-01-10", ajuste: -1000 }),
+    dt({ id: "2", date: "2026-02-10", ajuste: 600 }),
+  ];
+  it("Pro compensa o prejuízo de janeiro", () => {
+    const m = monthTax(trades, 1, a, br, true);
+    assert.equal(m.dt.prevC, 1000);
+    assert.equal(m.devido, 0);
+    assert.equal(m.prejuizoNaoCompensado, 0);
+  });
+  it("Grátis não compensa e mostra quanto ficou de fora", () => {
+    const m = monthTax(trades, 1, a, br, false);
+    assert.equal(m.dt.prevC, 0);
+    assert.equal(m.devido, 120);
+    assert.equal(m.pagar, 120);
+    assert.equal(m.prejuizoNaoCompensado, 1000);
+  });
+  it("mostra o saldo < R$ 10 que vem do mês anterior", () => {
+    const t2 = [dt({ id: "1", date: "2026-01-10", ajuste: 30 }), dt({ id: "2", date: "2026-02-10", ajuste: 40 })];
+    const m = monthTax(t2, 1, a, br);
+    assert.equal(m.diferidoAnterior, 6);
+    assert.equal(m.pagar, 14);
   });
 });
