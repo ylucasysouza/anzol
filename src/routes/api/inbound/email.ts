@@ -25,7 +25,7 @@ export const Route = createFileRoute("/api/inbound/email")({
             envelopeTo: request.headers.get("x-envelope-to") ?? "",
             authResults: request.headers.get("x-auth-results"),
           },
-          { pdfToLines },
+          { pdfToLines, pdfKey: process.env.ANZOL_PDF_KEY },
         );
         // Não devolve conteúdo da nota: só o status.
         return Response.json({ status: r.status });

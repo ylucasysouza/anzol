@@ -16,6 +16,7 @@ import {
 import { isStandalone } from "@/lib/tcp/pwa";
 import { LanguageSwitch, useI18n, useTr } from "@/lib/i18n";
 import { useEntitlement } from "@/lib/tcp/entitlement";
+import { NotasEmailPanel } from "@/components/tcp/notas-email-panel";
 
 export function MoreView({
   hasConsol,
@@ -58,6 +59,7 @@ export function MoreView({
         <span className="text-sm font-semibold">{t("language")}</span>
         <LanguageSwitch />
       </div>
+      <NotasEmailPanel />
       <Row icon={CalendarRange} label={t("annual")} hint={t("annualHint")} onClick={onAnnual} />
       {hasConsol && (
         <Row icon={Layers} label={t("consol")} hint={t("consolHint")} onClick={onConsol} />

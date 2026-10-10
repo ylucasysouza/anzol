@@ -39,7 +39,7 @@ let seq = 0;
 const deps = { pdfToLines, newId: () => `imp_${++seq}` };
 
 before(async () => {
-  sql = await memorySql(["0007_inbound_notes.sql"]);
+  sql = await memorySql(["0007_inbound_notes.sql", "0008_pdf_password.sql"]);
   await sql`insert into inbound_addresses (token, user_id) values ('abcdefghjk23', 'u1')`;
   await sql`insert into inbound_senders (user_id, email, verified_at) values ('u1', 'lucas@gmail.com', now())`;
 });

@@ -7,6 +7,10 @@
  */
 import type { Sql } from "../db.ts";
 import { notaToTrades, parseNotaSinacor } from "../tcp/nota-corretagem.ts";
+import { openSecret } from "./secret-box.ts";
+
+export const MSG_SEM_SENHA =
+  "Sem a senha, as notas protegidas não podem ser importadas automaticamente e você precisará lançá-las manualmente.";
 
 export const INBOUND_DOMAIN_DEFAULT = "notas.anzol.app"; // a definir
 export const MAX_PDF_BYTES = 5 * 1024 * 1024;
@@ -21,7 +25,9 @@ export interface InboundInput {
 }
 
 export interface InboundDeps {
-  pdfToLines: (pdf: Uint8Array) => Promise<string>;
+  pdfToLines: (pdf: Uint8Array, password?: string) => Promise<string>;
+  /** ANZOL_PDF_KEY (base64, 32 bytes) para abrir a senha guardada do usuário */
+  pdfKey?: string;
   newId?: () => string;
 }
 
@@ -34,7 +40,7 @@ export type InboundResult =
   | {
       status: "processed";
       userId: string;
-      imports: { id: string; status: "pending" | "failed" | "duplicate"; trades: number; avisos: string[] }[];
+      imports: { id: string; status: "pending" | "failed" | "duplicate" | "needs_password"; trades: number; avisos: string[] }[];
     };
 
 /** Gmail encaminha com MAIL FROM "lucas+caf_=...@gmail.com": remove o +sufixo. */
@@ -106,6 +112,19 @@ export async function processInboundEmail(sql: Sql, input: InboundInput, deps: I
     .slice(0, MAX_PDFS);
   if (!pdfs.length) return { status: "no_pdf", userId };
 
+  // Senha do PDF (se o usuário escolheu guardar). Aberta só em memória, nunca registrada.
+  const pref = await sql<{ choice: string; password_enc: string | null }>`
+    select choice, password_enc from pdf_password_prefs where user_id = ${userId}
+  `;
+  let password: string | undefined;
+  if (pref[0]?.choice === "store" && pref[0].password_enc) {
+    try {
+      password = await openSecret(pref[0].password_enc, userId, deps.pdfKey);
+    } catch {
+      password = undefined;
+    }
+  }
+
   const imports: Extract<InboundResult, { status: "processed" }>["imports"] = [];
   for (const att of pdfs) {
     let bytes: Uint8Array | null = toBytes(att.content as never);
@@ -117,22 +136,35 @@ export async function processInboundEmail(sql: Sql, input: InboundInput, deps: I
     const hash = await sha256Hex(bytes);
     let texto = "";
     const avisos: string[] = [];
+    let needsPassword = false;
     try {
-      texto = await deps.pdfToLines(bytes);
+      texto = await deps.pdfToLines(bytes, password);
     } catch (e) {
-      avisos.push(/password/i.test(String(e)) ? "PDF protegido por senha." : "Não consegui ler o PDF.");
+      if ((e as Error)?.name === "PdfPasswordError") {
+        needsPassword = true;
+        const wrong = (e as { reason?: string }).reason === "wrong";
+        if (pref[0]?.choice === "none") avisos.push(`Nota protegida por senha. ${MSG_SEM_SENHA}`);
+        else if (wrong) avisos.push("A senha guardada não abriu esta nota. Atualize a senha ou lance a nota manualmente.");
+        else avisos.push("Nota protegida por senha. Escolha: guardar a senha (recomendado) ou lançar manualmente.");
+      } else {
+        avisos.push("Não consegui ler o PDF.");
+      }
     } finally {
       bytes = null; // LGPD: o PDF não sai da memória nem é gravado
     }
     const nota = parseNotaSinacor(texto);
     const trades = nota.operacoes.length ? notaToTrades(nota) : [];
-    const all = [...avisos, ...nota.avisos];
-    const status = nota.operacoes.length ? "pending" : "failed";
+    const all = needsPassword ? avisos : [...avisos, ...nota.avisos];
+    const status = needsPassword ? "needs_password" : nota.operacoes.length ? "pending" : "failed";
     const ins = await sql<{ id: string }>`
       insert into pending_imports (id, user_id, pdf_sha256, nota_numero, data_pregao, trades, operacoes, avisos, status)
       values (${id}, ${userId}, ${hash}, ${nota.numero}, ${nota.dataPregao}, ${JSON.stringify(trades)}::jsonb,
               ${JSON.stringify(nota.operacoes)}::jsonb, ${JSON.stringify(all)}::jsonb, ${status})
-      on conflict (user_id, pdf_sha256) do nothing returning id
+      on conflict (user_id, pdf_sha256) do update set
+        nota_numero = excluded.nota_numero, data_pregao = excluded.data_pregao, trades = excluded.trades,
+        operacoes = excluded.operacoes, avisos = excluded.avisos, status = excluded.status, created_at = now()
+      where pending_imports.status = 'needs_password'  -- reenvio depois de cadastrar a senha
+      returning id
     `;
     imports.push({ id, status: ins.length ? status : "duplicate", trades: trades.length, avisos: all });
   }

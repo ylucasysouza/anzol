@@ -3,9 +3,27 @@
  * no formato que o parser SINACOR espera. Roda no servidor (unpdf = pdf.js sem DOM).
  * PDF escaneado (só imagem) devolve texto vazio: precisa de OCR (fora do escopo).
  */
-export async function pdfToLines(pdf: Uint8Array): Promise<string> {
+export class PdfPasswordError extends Error {
+  reason: "missing" | "wrong";
+  constructor(reason: "missing" | "wrong") {
+    super(reason === "missing" ? "PDF protegido por senha" : "Senha do PDF incorreta");
+    this.reason = reason;
+    this.name = "PdfPasswordError";
+  }
+}
+
+/** pdf.js abre PDFs cifrados (RC4/AES-128/AES-256) quando recebe a senha. */
+export async function pdfToLines(pdf: Uint8Array, password?: string): Promise<string> {
   const { getDocumentProxy } = await import("unpdf");
-  const doc = await getDocumentProxy(new Uint8Array(pdf));
+  let doc: Awaited<ReturnType<typeof getDocumentProxy>>;
+  try {
+    doc = await getDocumentProxy(new Uint8Array(pdf), (password ? { password } : {}) as never);
+  } catch (e) {
+    if ((e as Error)?.name === "PasswordException") {
+      throw new PdfPasswordError((e as { code?: number }).code === 2 ? "wrong" : "missing");
+    }
+    throw e;
+  }
   const out: string[] = [];
   try {
     for (let p = 1; p <= doc.numPages; p++) {

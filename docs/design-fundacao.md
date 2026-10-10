@@ -72,7 +72,12 @@ Custos (fontes oficiais, out/2026):
 | SendGrid Inbound Parse | Sem plano grátis permanente (teste 60 dias); Essentials a partir de US$ 19,95/mês | | twilio.com/en-us/products/email-api/pricing |
 Escolha: **Cloudflare** (custo zero; exige o domínio do Anzol no Cloudflare).
 
-Limites: nota BM&F (WIN/WDO) não lida; **PDF com senha** (várias corretoras protegem com dígitos do CPF) vira `failed` — precisa decidir se pedimos a senha ao usuário (guardada criptografada) ou só aceitamos PDF sem senha; PDF escaneado precisa OCR; tela de revisão no app ainda não construída.
+**PDF com senha — IMPLEMENTADO**: o usuário escolhe no app (Mais → Notas por e-mail).
+- Opção A (recomendada): informa a senha uma vez; guardada com AES-256-GCM (`ANZOL_PDF_KEY`, 32 bytes base64; userId como dado associado), nunca em log nem devolvida ao cliente, apagável a qualquer momento (`pdf_password_prefs`, migração 0008). Notas que chegam são abertas sozinhas (pdf.js decifra RC4/AES).
+- Opção B: não guarda. Aviso: "Sem a senha, as notas protegidas não podem ser importadas automaticamente e você precisará lançá-las manualmente."
+- Nota protegida sem senha (ou com senha errada) vira `needs_password` e o app avisa com as duas opções. Como o PDF não é guardado, depois de cadastrar a senha o usuário reencaminha a nota (o reenvio substitui o registro).
+
+Limites (antes): nota BM&F (WIN/WDO) não lida; **PDF com senha** (várias corretoras protegem com dígitos do CPF) vira `failed` — precisa decidir se pedimos a senha ao usuário (guardada criptografada) ou só aceitamos PDF sem senha; PDF escaneado precisa OCR; tela de revisão no app ainda não construída.
 
 ## 8. DARF dentro do app — Serpro Integra Contador
 - Serviço SICALC `CONSOLIDARGERARDARF51` (PDF) / `GERARDARFCODBARRA53` (código de barras).

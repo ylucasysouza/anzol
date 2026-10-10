@@ -32,7 +32,7 @@ export const listPendingImports = createServerFn({ method: "POST" })
     const sql = await getSql();
     return sql<{ id: string; nota_numero: string | null; data_pregao: string | null; trades: Trade[]; avisos: string[]; status: string }>`
       select id, nota_numero, data_pregao, trades, avisos, status from pending_imports
-      where user_id = ${context.userId} and status in ('pending', 'failed') order by created_at desc limit 50
+      where user_id = ${context.userId} and status in ('pending', 'failed', 'needs_password') order by created_at desc limit 50
     `;
   });
 
@@ -52,4 +52,44 @@ export const decideImport = createServerFn({ method: "POST" })
       returning trades
     `;
     return { trades: data.accept ? (rows[0]?.trades ?? []) : [] };
+  });
+
+/* ---------- Senha do PDF protegido (escolha do usuário) ---------- */
+
+export const getPdfPasswordChoice = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const { getSql } = await import("@/lib/db");
+    const { getChoice } = await import("@/lib/inbound/pdf-password");
+    return getChoice(await getSql(), context.userId);
+  });
+
+/** Opção A (recomendada). A senha nunca é registrada em log nem devolvida ao cliente. */
+export const savePdfPassword = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((d: unknown) => ({ password: String((d as { password?: unknown })?.password ?? "") }))
+  .handler(async ({ context, data }) => {
+    const { getSql } = await import("@/lib/db");
+    const { storePassword } = await import("@/lib/inbound/pdf-password");
+    await storePassword(await getSql(), context.userId, data.password, process.env.ANZOL_PDF_KEY);
+    return { ok: true as const };
+  });
+
+/** Opção B: sem senha guardada. */
+export const choosePdfNoPassword = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const { getSql } = await import("@/lib/db");
+    const { chooseNoPassword } = await import("@/lib/inbound/pdf-password");
+    await chooseNoPassword(await getSql(), context.userId);
+    return { ok: true as const };
+  });
+
+export const deletePdfPassword = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const { getSql } = await import("@/lib/db");
+    const { deletePassword } = await import("@/lib/inbound/pdf-password");
+    await deletePassword(await getSql(), context.userId);
+    return { ok: true as const };
   });
