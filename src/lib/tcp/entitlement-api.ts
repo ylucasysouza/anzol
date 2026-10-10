@@ -1,82 +1,38 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
-import type { PlanId, Role } from "@/lib/tcp/plans";
+import type { ServerEntitlement } from "@/lib/billing/asaas";
 
-const PLANS = new Set(["free", "pro", "baleia", "enterprise"]);
-const ROLES = new Set(["user", "developer"]);
-
-function asPlan(value: string | null | undefined): PlanId {
-  return value && PLANS.has(value) ? (value as PlanId) : "free";
-}
-
-function asRole(value: string | null | undefined): Role {
-  return value && ROLES.has(value) ? (value as Role) : "user";
-}
-
-/** Emails that always own the product. Add the company login here. */
-const OWNER_EMAILS = new Set<string>([]);
-
-export const syncEntitlement = createServerFn({ method: "POST" })
+/**
+ * Plano do usuário, calculado SÓ no servidor a partir de pagamentos confirmados
+ * pelo Asaas (tabela subscriptions). Dono/desenvolvedor só por ANZOL_OWNER_EMAILS.
+ * Nenhum valor vindo do cliente é aceito.
+ */
+export const getEntitlement = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((data: unknown) => {
-    const row = data && typeof data === "object" ? (data as { claimOwner?: unknown }) : {};
-    return { claimOwner: row.claimOwner === true };
-  })
-  .handler(async ({ context, data }) => {
+  .handler(async ({ context }): Promise<ServerEntitlement> => {
     const { getSql } = await import("@/lib/db");
-    const sql = await getSql();
-    const email = String(context.email ?? "").trim().toLowerCase();
-    const owner = email.length > 0 && OWNER_EMAILS.has(email);
-    const existing = await sql<{ plan: string; role: string; cycle_end: string | null; cancel_at: string | null }>`
-      select plan, role, cycle_end, cancel_at from entitlements where user_id = ${context.userId}
-    `;
-    const row = existing[0];
-    if (row?.cancel_at && row.cycle_end && Date.parse(row.cycle_end) < Date.now() && row.role !== "developer") {
-      await sql`
-        update entitlements set plan = 'free', cancel_at = null, updated_at = now() where user_id = ${context.userId}
-      `;
-      return { plan: "free" as PlanId, role: asRole(row.role) };
-    }
-    if (owner || data.claimOwner) {
-      const owners = await sql<{ n: string }>`select user_id as n from entitlements where role = 'developer' limit 1`;
-      const seatFree = owners.length === 0 || owners[0]?.n === context.userId;
-      if (owner || seatFree) {
-        await sql`
-          insert into entitlements (user_id, plan, role)
-          values (${context.userId}, 'enterprise', 'developer')
-          on conflict (user_id) do update set role = 'developer', plan = 'enterprise', updated_at = now()
-        `;
-        return { plan: "enterprise" as PlanId, role: "developer" as Role };
-      }
-    }
-    if (row) return { plan: asPlan(row.plan), role: asRole(row.role) };
-    await sql`insert into entitlements (user_id, plan, role) values (${context.userId}, 'free', 'user')`;
-    return { plan: "free" as PlanId, role: "user" as Role };
+    const { resolveEntitlement } = await import("@/lib/billing/asaas");
+    return resolveEntitlement(await getSql(), context.userId, context.email ?? null);
   });
 
+/** Cancela no Asaas; o acesso segue até o fim do período pago (webhook SUBSCRIPTION_DELETED). */
 export const cancelEntitlement = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
+    const key = process.env.ASAAS_API_KEY;
+    if (!key) throw new Error("ASAAS_API_KEY não configurada");
+    const base = process.env.ASAAS_API_URL || "https://api-sandbox.asaas.com/v3";
     const { getSql } = await import("@/lib/db");
     const sql = await getSql();
-    await sql`
-      update entitlements
-      set cancel_at = now(), updated_at = now()
-      where user_id = ${context.userId} and role <> 'developer' and plan <> 'free'
+    const subs = await sql<{ id: string }>`
+      select id from subscriptions where user_id = ${context.userId} and status <> 'canceled' and id like 'sub_%'
     `;
-    return { ok: true as const };
+    for (const s of subs) {
+      const res = await fetch(`${base}/subscriptions/${encodeURIComponent(s.id)}`, {
+        method: "DELETE",
+        headers: { access_token: key, "User-Agent": "anzol" },
+      });
+      if (!res.ok) throw new Error(`Asaas recusou o cancelamento (${res.status})`);
+    }
+    return { ok: true as const, count: subs.length };
   });
-
-export async function grantPlan(userId: string, plan: PlanId, cycle: "month" | "year") {
-  const { getSql } = await import("@/lib/db");
-  const sql = await getSql();
-  const end = new Date();
-  if (cycle === "year") end.setFullYear(end.getFullYear() + 1);
-  else end.setMonth(end.getMonth() + 1);
-  await sql`
-    insert into entitlements (user_id, plan, role, cycle_end, cancel_at)
-    values (${userId}, ${plan}, 'user', ${end.toISOString()}, null)
-    on conflict (user_id) do update
-      set plan = excluded.plan, cycle_end = excluded.cycle_end, cancel_at = null, updated_at = now()
-  `;
-}

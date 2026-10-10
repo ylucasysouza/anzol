@@ -1,51 +1,45 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { syncEntitlement } from "@/lib/tcp/entitlement-api";
-import { allows, type Entitlement, type Feature, type PlanId, type Role } from "@/lib/tcp/plans";
+import { getEntitlement } from "@/lib/tcp/entitlement-api";
+import { CACHE_KEY, FREE, fromCache, type CachedEnt } from "@/lib/tcp/entitlement-cache";
+import { allows, type Entitlement, type Feature } from "@/lib/tcp/plans";
 
-const ROLE_KEY = "anzol-role";
-const PLAN_KEY = "anzol-plan";
-const MIGRATED = "anzol-billing-v1";
-
-let local: Entitlement = { plan: "free", role: "user" };
-let remote: Entitlement | null = null;
+/**
+ * O plano vem SEMPRE do servidor (getEntitlement). O cliente só guarda a última
+ * resposta para funcionar sem internet, com prazo (ver entitlement-cache.ts).
+ * Quando o servidor responde, a resposta dele substitui o cache.
+ */
+let current: Entitlement = FREE;
 const listeners = new Set<() => void>();
 
 function emit() {
   listeners.forEach((fn) => fn());
 }
 
-function readStored(): Entitlement {
-  if (typeof localStorage === "undefined") return { plan: "free", role: "user" };
-  const role = localStorage.getItem(ROLE_KEY) === "developer" ? "developer" : "user";
-  const plan = localStorage.getItem(PLAN_KEY);
-  const safe: PlanId = plan === "pro" || plan === "baleia" || plan === "enterprise" || plan === "free" ? plan : "free";
-  return { plan: safe, role };
-}
-
-function writeStored(ent: Entitlement) {
-  local = ent;
-  try {
-    localStorage.setItem(ROLE_KEY, ent.role);
-    localStorage.setItem(PLAN_KEY, ent.plan);
-  } catch {
-    /* private mode */
-  }
+function set(ent: Entitlement) {
+  if (ent.plan === current.plan && ent.role === current.role) return;
+  current = ent;
   emit();
 }
 
-if (typeof localStorage !== "undefined") local = readStored();
-
-/** The device that already kept the books before billing stays the developer seat. New installs start Free. */
-export function bootstrapEntitlement(hasBooks: boolean) {
-  if (typeof localStorage === "undefined") return;
-  if (localStorage.getItem(MIGRATED)) {
-    local = readStored();
-    return;
+function readCache(userId: string | null): Entitlement {
+  if (typeof localStorage === "undefined") return FREE;
+  try {
+    return fromCache(localStorage.getItem(CACHE_KEY), userId);
+  } catch {
+    return FREE;
   }
-  const role: Role = hasBooks ? "developer" : "user";
-  localStorage.setItem(MIGRATED, "1");
-  writeStored({ plan: "free", role });
+}
+
+/** Antes o plano era escrito pelo próprio aparelho. Agora não vale mais: apaga as chaves antigas. */
+export function bootstrapEntitlement(_hasBooks?: boolean) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.removeItem("anzol-plan");
+    localStorage.removeItem("anzol-role");
+  } catch {
+    /* private mode */
+  }
 }
 
 function subscribe(cb: () => void) {
@@ -53,15 +47,8 @@ function subscribe(cb: () => void) {
   return () => listeners.delete(cb);
 }
 
-const SERVER_ENT: Entitlement = { plan: "free", role: "user" };
-
-function getClient(): Entitlement {
-  return remote ?? local;
-}
-
-function getServer(): Entitlement {
-  return SERVER_ENT;
-}
+const getClient = () => current;
+const getServer = () => FREE;
 
 export function useEntitlement(): Entitlement {
   return useSyncExternalStore(subscribe, getClient, getServer);
@@ -76,33 +63,36 @@ export function EntitlementSync() {
   const userId = user?.id ?? null;
 
   useEffect(() => {
-    if (isPending || !userId) {
-      remote = null;
-      emit();
+    if (isPending) return;
+    if (!userId) {
+      set(FREE);
       return;
     }
+    set(readCache(userId)); // offline: última resposta do servidor, se ainda válida
     let cancel = false;
-    void syncEntitlement({ data: { claimOwner: readStored().role === "developer" } })
-      .then((row) => {
-        if (cancel || !row) return;
-        if (row.role === "developer") {
-          remote = { plan: row.plan, role: "developer" };
-          writeStored(remote);
-          return;
-        }
-        if (readStored().role === "developer") {
-          remote = null;
-          emit();
-          return;
-        }
-        remote = { plan: row.plan, role: row.role };
-        emit();
-      })
-      .catch(() => {
-        /* keep the local seat if the account cannot be read */
-      });
+    const refresh = () =>
+      getEntitlement()
+        .then((row) => {
+          if (cancel || !row) return;
+          const cached: CachedEnt = { userId, ...row };
+          try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+          } catch {
+            /* private mode */
+          }
+          set({ plan: row.plan, role: row.role }); // servidor vence
+        })
+        .catch(() => {
+          /* sem rede: segue o cache com prazo */
+        });
+    void refresh();
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onFocus);
     return () => {
       cancel = true;
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onFocus);
     };
   }, [isPending, userId]);
 
