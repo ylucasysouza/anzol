@@ -13,8 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ContaRouteImport } from './routes/conta'
 import { Route as InstalarRouteImport } from './routes/instalar'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ApiAsaasWebhookRouteImport } from './routes/api/asaas/webhook'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiBillingWebhookRouteImport } from './routes/api/billing/webhook'
+import { Route as ApiInboundEmailRouteImport } from './routes/api/inbound/email'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -36,6 +38,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAsaasWebhookRoute = ApiAsaasWebhookRouteImport.update({
+  id: '/api/asaas/webhook',
+  path: '/api/asaas/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -46,22 +53,31 @@ const ApiBillingWebhookRoute = ApiBillingWebhookRouteImport.update({
   path: '/api/billing/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiInboundEmailRoute = ApiInboundEmailRouteImport.update({
+  id: '/api/inbound/email',
+  path: '/api/inbound/email',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/conta': typeof ContaRoute
   '/instalar': typeof InstalarRoute
   '/login': typeof LoginRoute
+  '/api/asaas/webhook': typeof ApiAsaasWebhookRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
+  '/api/inbound/email': typeof ApiInboundEmailRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/conta': typeof ContaRoute
   '/instalar': typeof InstalarRoute
   '/login': typeof LoginRoute
+  '/api/asaas/webhook': typeof ApiAsaasWebhookRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
+  '/api/inbound/email': typeof ApiInboundEmailRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,8 +85,10 @@ export interface FileRoutesById {
   '/conta': typeof ContaRoute
   '/instalar': typeof InstalarRoute
   '/login': typeof LoginRoute
+  '/api/asaas/webhook': typeof ApiAsaasWebhookRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/billing/webhook': typeof ApiBillingWebhookRoute
+  '/api/inbound/email': typeof ApiInboundEmailRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -79,24 +97,30 @@ export interface FileRouteTypes {
     | '/conta'
     | '/instalar'
     | '/login'
+    | '/api/asaas/webhook'
     | '/api/auth/$'
     | '/api/billing/webhook'
+    | '/api/inbound/email'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/conta'
     | '/instalar'
     | '/login'
+    | '/api/asaas/webhook'
     | '/api/auth/$'
     | '/api/billing/webhook'
+    | '/api/inbound/email'
   id:
     | '__root__'
     | '/'
     | '/conta'
     | '/instalar'
     | '/login'
+    | '/api/asaas/webhook'
     | '/api/auth/$'
     | '/api/billing/webhook'
+    | '/api/inbound/email'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -104,8 +128,10 @@ export interface RootRouteChildren {
   ContaRoute: typeof ContaRoute
   InstalarRoute: typeof InstalarRoute
   LoginRoute: typeof LoginRoute
+  ApiAsaasWebhookRoute: typeof ApiAsaasWebhookRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiBillingWebhookRoute: typeof ApiBillingWebhookRoute
+  ApiInboundEmailRoute: typeof ApiInboundEmailRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -138,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/asaas/webhook': {
+      id: '/api/asaas/webhook'
+      path: '/api/asaas/webhook'
+      fullPath: '/api/asaas/webhook'
+      preLoaderRoute: typeof ApiAsaasWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -152,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiBillingWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/inbound/email': {
+      id: '/api/inbound/email'
+      path: '/api/inbound/email'
+      fullPath: '/api/inbound/email'
+      preLoaderRoute: typeof ApiInboundEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -160,8 +200,10 @@ const rootRouteChildren: RootRouteChildren = {
   ContaRoute: ContaRoute,
   InstalarRoute: InstalarRoute,
   LoginRoute: LoginRoute,
+  ApiAsaasWebhookRoute: ApiAsaasWebhookRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiBillingWebhookRoute: ApiBillingWebhookRoute,
+  ApiInboundEmailRoute: ApiInboundEmailRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

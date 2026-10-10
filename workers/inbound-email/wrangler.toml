@@ -1,0 +1,7 @@
+# Exemplo — NÃO implantado. Requer domínio no Cloudflare com Email Routing ativo.
+name = "anzol-inbound-email"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+[vars]
+ANZOL_INBOUND_URL = "https://SEU-DOMINIO/api/inbound/email"
+# segredo: wrangler secret put INBOUND_WEBHOOK_SECRET

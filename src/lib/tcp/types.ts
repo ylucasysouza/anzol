@@ -59,6 +59,8 @@ export interface Trade {
   taxas?: number | string;
   irrf?: number | string;
   totalVendas?: number | string;
+  /** classe do ativo; se ausente, deduzida do ticker (assets.ts) */
+  classe?: import("./assets").AssetClass;
   nota?: string;
   dir?: "Buy" | "Sell";
   gross?: number;
@@ -135,6 +137,8 @@ export interface SwingResult {
   nc: number;
   count: number;
   totalVendas: number;
+  /** vendas de ações à vista no mês (base do limite de R$ 20 mil) */
+  vendasAcoes: number;
   exempt: boolean;
   sc: "SWING";
 }

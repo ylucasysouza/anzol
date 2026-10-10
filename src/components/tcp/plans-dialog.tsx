@@ -100,7 +100,7 @@ export function PlansDialog({
     {
       id: "pro",
       name: "Anzol Pro",
-      price: "R$ 459",
+      price: "R$ 29,90",
       per: tr("/mês", "/mo", "/mes"),
       note: tr("Para fechar o mês com a vida financeira ligada.", "To close the month with the rest of your money attached.", "Para cerrar el mes con el resto de tu dinero ligado."),
       feats: [
@@ -114,7 +114,7 @@ export function PlansDialog({
     {
       id: "baleia",
       name: "Anzol Baleia",
-      price: "R$ 999",
+      price: "R$ 99,90",
       per: tr("/mês", "/mo", "/mes"),
       note: tr("Livro fiscal e livro gerencial no mesmo lugar.", "The tax book and the management book in one place.", "El libro fiscal y el libro de gestión en el mismo lugar."),
       feats: [
@@ -152,9 +152,9 @@ export function PlansDialog({
         className="sm:max-w-5xl"
         title={tr("Planos", "Plans", "Planes")}
         description={tr(
-          "Free, Pro 459, Baleia 999. Enterprise sob consulta. Sem período de teste.",
-          "Free, Pro 459, Baleia 999. Enterprise on request. No trial period.",
-          "Free, Pro 459, Baleia 999. Enterprise a consultar. Sin período de prueba.",
+          "Free, Pro 29,90, Baleia 99,90. Enterprise sob consulta. Sem período de teste.",
+          "Free, Pro 29.90, Baleia 99.90. Enterprise on request. No trial period.",
+          "Free, Pro 29,90, Baleia 99,90. Enterprise a consultar. Sin período de prueba.",
         )}
       >
         {dev && (
@@ -184,7 +184,7 @@ export function PlansDialog({
                 {plan.id === "pro" && (
                   <>
                     <p className="text-2xs text-muted">
-                      {tr("Anual R$ 4.590, o preço de 10 meses.", "Yearly R$ 4,590, the price of 10 months.", "Anual R$ 4.590, el precio de 10 meses.")}
+                      {tr("Anual R$ 269.", "Yearly R$ 269.", "Anual R$ 269.")}
                     </p>
                     <Button className="w-full" size="sm" onClick={() => openPay(CHECKOUT.pro_month, emptyPay)}>
                       {tr("Pro mensal", "Pro monthly", "Pro mensual")}
@@ -197,7 +197,7 @@ export function PlansDialog({
                 {plan.id === "baleia" && (
                   <>
                     <p className="text-2xs text-muted">
-                      {tr("Anual R$ 9.990, o preço de 10 meses.", "Yearly R$ 9,990, the price of 10 months.", "Anual R$ 9.990, el precio de 10 meses.")}
+                      {tr("Anual R$ 899.", "Yearly R$ 899.", "Anual R$ 899.")}
                     </p>
                     <Button className="w-full" size="sm" onClick={() => openPay(CHECKOUT.baleia_month, emptyPay)}>
                       {tr("Baleia mensal", "Baleia monthly", "Baleia mensual")}

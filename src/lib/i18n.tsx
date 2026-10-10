@@ -1,12 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-export type Locale = "pt" | "en" | "es";
-
-let activeLocale: Locale = "pt";
-
-export function readLocale(): Locale {
-  return activeLocale;
-}
+import { readLocale, setActiveLocale, type Locale } from "./locale.ts";
+export { readLocale, type Locale };
 
 function initialLocale(): Locale {
   if (typeof window === "undefined") return "pt";
@@ -316,21 +311,21 @@ const I18nContext = createContext<I18nValue | null>(null);
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
     const next = initialLocale();
-    activeLocale = next;
+    setActiveLocale(next);
     return next;
   });
 
   useEffect(() => {
-    activeLocale = locale;
+    setActiveLocale(locale);
     document.documentElement.lang = locale === "pt" ? "pt-BR" : locale === "es" ? "es" : "en";
   }, [locale]);
 
   const value = useMemo<I18nValue>(() => {
-    activeLocale = locale;
+    setActiveLocale(locale);
     return {
       locale,
       setLocale: (next) => {
-        activeLocale = next;
+        setActiveLocale(next);
         setLocaleState(next);
         try {
           localStorage.setItem("anzol-locale", next);

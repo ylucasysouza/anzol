@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { FieldLabel, Input } from "@/components/ui/input";
 import { useI18n, useTr } from "@/lib/i18n";
 import { toast } from "sonner";
-import { useEntitlement } from "@/lib/tcp/entitlement";
+import { can, useEntitlement } from "@/lib/tcp/entitlement";
 import { allowsPdf } from "@/lib/tcp/plans";
 import { requestPlans } from "./plan-gate";
 import { formatDateBR, formatMoney, formatPct, MONTHS, pnlTone } from "@/lib/tcp/format";
@@ -137,7 +137,7 @@ export function AnnualView() {
 
   const rows = MONTHS.map((mon, m) => {
     const monthTrades = tradesInMonth(all, m);
-    const c = carry(all, m, "dt", account, jur);
+    const c = carry(all, m, "dt", account, jur, can(ent, "compensacao_prejuizo"));
     const tax = calcDT(monthTrades, c, account, jur);
     return { m, mon, tr: monthTrades, tax, a: adv(monthTrades, jur.sc), due: account ? darfDueDate(account.year, m) : null };
   });

@@ -17,7 +17,7 @@ import type { CasaState, LineDef } from "@/lib/casa/types";
 import { parseNumberCell } from "@/lib/tcp/csv";
 import { formatMoney, formatPct, pnlTone } from "@/lib/tcp/format";
 import { jurisdiction } from "@/lib/tcp/jurisdictions";
-import { calcDT, calcSwing, carry, tradesInMonth } from "@/lib/tcp/tax";
+import { monthTax } from "@/lib/tcp/tax";
 import { useActiveAccount, useTcpStore } from "@/lib/tcp/store";
 import { cn } from "@/lib/utils";
 import { useI18n, useTr } from "@/lib/i18n";
@@ -67,10 +67,10 @@ function useTradingMix(month: number) {
   const portfolio = useTcpStore((s) => s.portfolio);
   const jur = jurisdiction(account?.country);
   const all = account ? (tradesMap[account.id] ?? []) : [];
-  const trades = tradesInMonth(all, month);
-  const dt = account ? calcDT(trades, carry(all, month, "dt", account, jur), account, jur) : null;
-  const sw = account ? calcSwing(trades, carry(all, month, "sw", account, jur), jur) : null;
-  const darf = (dt?.darf ?? 0) + (jur.sc === "BR" && sw && sw.count && !sw.exempt ? sw.darf : 0);
+  const ent = useEntitlement();
+  // Mesmo número da guia da tela do mês (mínimo de R$ 10; compensação só no Pro).
+  const darf =
+    account && jur.sc === "BR" ? monthTax(all, month, account, jur, can(ent, "compensacao_prejuizo")).pagar : 0;
   const carteira = portfolio.positions.reduce((s, p) => {
     const pr = portfolio.prices[p.ticker];
     return s + p.shares * (pr?.price ?? p.avgPrice);

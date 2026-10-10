@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { J } from "./jurisdictions.ts";
+import { guessAssetClass } from "./assets.ts";
 import {
   calcBRIntlAnnual,
   calcConsol,
@@ -8,6 +9,8 @@ import {
   calcSwing,
   calcUSQuarterly,
   carry,
+  darfSchedule,
+  monthTax,
   darfDueDate,
   equityCurve,
   lastBusinessDay,
@@ -73,7 +76,7 @@ describe("calcDT Brazil", () => {
 
 describe("calcSwing Brazil", () => {
   it("exempts when monthly sales ≤ R$20.000", () => {
-    const trades = [dt({ tipo: "swing", ajuste: 1000, taxas: 20, totalVendas: 15000, irrf: 0 })];
+    const trades = [dt({ tipo: "swing", asset: "PETR4", ajuste: 1000, taxas: 20, totalVendas: 15000, irrf: 0 })];
     const r = calcSwing(trades, 0, br);
     assert.equal(r.exempt, true);
     assert.equal(r.base, 0);
@@ -158,5 +161,120 @@ describe("equity + drawdown", () => {
     assert.equal(curve[2].eq, 50);
     const dd = maxDrawdown(curve);
     assert.equal(dd.amount, 50);
+  });
+});
+
+describe("isenção de R$ 20 mil só para ações à vista", () => {
+  const sw = (asset: string, ajuste: number, totalVendas: number, extra: Partial<Trade> = {}) =>
+    dt({ tipo: "swing", asset, ajuste, totalVendas, ...extra });
+
+  it("classifica tickers", () => {
+    assert.equal(guessAssetClass("PETR4"), "acao");
+    assert.equal(guessAssetClass("VALE3"), "acao");
+    assert.equal(guessAssetClass("HGLG11"), "fii");
+    assert.equal(guessAssetClass("AAPL34"), "bdr");
+    assert.equal(guessAssetClass("WINFUT"), "futuro");
+    assert.equal(guessAssetClass("WDOZ26"), "futuro");
+    assert.equal(guessAssetClass("PETRK300"), "opcao");
+  });
+
+  it("FII com vendas < 20 mil NÃO é isento", () => {
+    const r = calcSwing([sw("HGLG11", 1000, 10000)], 0, br);
+    assert.equal(r.exempt, false);
+    assert.equal(r.td, 150);
+  });
+
+  it("ETF (classe explícita) e BDR não são isentos", () => {
+    const r = calcSwing([sw("BOVA11", 500, 5000, { classe: "etf" }), sw("AAPL34", 500, 5000)], 0, br);
+    assert.equal(r.base, 1000);
+  });
+
+  it("ação isenta + BDR tributado no mesmo mês: só o BDR paga", () => {
+    const r = calcSwing([sw("PETR4", 2000, 15000), sw("AAPL34", 1000, 8000)], 0, br);
+    assert.equal(r.exempt, true);
+    assert.equal(r.vendasAcoes, 15000);
+    assert.equal(r.base, 1000);
+    assert.equal(r.td, 150);
+  });
+
+  it("unit (TAEE11) com classe explícita 'acao' entra na isenção", () => {
+    const r = calcSwing([sw("TAEE11", 1000, 9000, { classe: "acao" })], 0, br);
+    assert.equal(r.exempt, true);
+    assert.equal(r.darf, 0);
+  });
+
+  it("mês isento não consome prejuízo acumulado", () => {
+    const r = calcSwing([sw("PETR4", 3000, 15000)], 500, br);
+    assert.equal(r.nc, 500);
+  });
+
+  it("perda em ações num mês isento continua acumulando", () => {
+    const r = calcSwing([sw("PETR4", -400, 15000)], 100, br);
+    assert.equal(r.nc, 500);
+  });
+});
+
+describe("DARF abaixo de R$ 10 passa para o mês seguinte", () => {
+  const a = acct();
+  it("acumula até atingir R$ 10", () => {
+    const trades = [
+      dt({ id: "1", date: "2026-01-10", ajuste: 30 }), // 20% = 6,00
+      dt({ id: "2", date: "2026-02-10", ajuste: 15 }), // 3,00 -> total 9,00
+      dt({ id: "3", date: "2026-03-10", ajuste: 10 }), // 2,00 -> total 11,00
+    ];
+    const s = darfSchedule(trades, a, br);
+    assert.deepEqual(s.slice(0, 4).map((x) => [x.devido, x.pagar, x.diferido]), [
+      [6, 0, 6],
+      [3, 0, 9],
+      [2, 11, 0],
+      [0, 0, 0],
+    ]);
+  });
+  it("valor >= R$ 10 paga no próprio mês", () => {
+    const s = darfSchedule([dt({ date: "2026-05-02", ajuste: 50 })], a, br);
+    assert.equal(s[4].pagar, 10);
+  });
+  it("soma DT e swing (mesmo código 6015) para o mínimo", () => {
+    const s = darfSchedule(
+      [dt({ id: "1", date: "2026-06-03", ajuste: 30 }), dt({ id: "2", date: "2026-06-04", tipo: "swing", asset: "AAPL34", ajuste: 40, totalVendas: 1000 })],
+      a,
+      br,
+    );
+    assert.equal(s[5].pagar, 12); // 6 + 6
+  });
+});
+
+describe("centavos no motor", () => {
+  it("0,1 + 0,2 de ajuste não gera resíduo", () => {
+    const r = calcDT([dt({ ajuste: 0.1 }), dt({ ajuste: 0.2 })], 0, acct(), br);
+    assert.equal(r.net, 0.3);
+    assert.equal(r.td, 0.06);
+  });
+});
+
+describe("monthTax (tela do mês)", () => {
+  const a = acct();
+  const trades = [
+    dt({ id: "1", date: "2026-01-10", ajuste: -1000 }),
+    dt({ id: "2", date: "2026-02-10", ajuste: 600 }),
+  ];
+  it("Pro compensa o prejuízo de janeiro", () => {
+    const m = monthTax(trades, 1, a, br, true);
+    assert.equal(m.dt.prevC, 1000);
+    assert.equal(m.devido, 0);
+    assert.equal(m.prejuizoNaoCompensado, 0);
+  });
+  it("Grátis não compensa e mostra quanto ficou de fora", () => {
+    const m = monthTax(trades, 1, a, br, false);
+    assert.equal(m.dt.prevC, 0);
+    assert.equal(m.devido, 120);
+    assert.equal(m.pagar, 120);
+    assert.equal(m.prejuizoNaoCompensado, 1000);
+  });
+  it("mostra o saldo < R$ 10 que vem do mês anterior", () => {
+    const t2 = [dt({ id: "1", date: "2026-01-10", ajuste: 30 }), dt({ id: "2", date: "2026-02-10", ajuste: 40 })];
+    const m = monthTax(t2, 1, a, br);
+    assert.equal(m.diferidoAnterior, 6);
+    assert.equal(m.pagar, 14);
   });
 });
